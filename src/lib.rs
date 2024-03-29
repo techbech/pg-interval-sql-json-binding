@@ -9,6 +9,41 @@ use postgres_types::private::BytesMut;
 use serde::{Deserialize, Serialize};
 use serde::ser::{SerializeStruct};
 use std::convert::TryInto;
+use std::fmt::{Display, Formatter};
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParseError {
+    pg: pg_interval::ParseError,
+}
+
+impl From<pg_interval::ParseError> for ParseError {
+    fn from(pg: pg_interval::ParseError) -> ParseError {
+        ParseError {
+            pg
+        }
+    }
+}
+
+impl Into<pg_interval::ParseError> for ParseError {
+    fn into(self) -> pg_interval::ParseError {
+        self.pg
+    }
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match &self.pg {
+            pg_interval::ParseError::InvalidInterval(s) => write!(f, "{}", s),
+            pg_interval::ParseError::InvalidTime(s) => write!(f, "{}", s),
+            pg_interval::ParseError::InvalidYearMonth(s) => write!(f, "{}", s),
+            pg_interval::ParseError::ParseIntErr(s) => write!(f, "{}", s),
+            pg_interval::ParseError::ParseFloatErr(s) => write!(f, "{}", s),
+        }
+    }
+}
+
+impl Error for ParseError {
+}
 
 #[derive(Debug)]
 pub struct Interval {
@@ -16,7 +51,7 @@ pub struct Interval {
 }
 
 impl Interval {
-    pub fn new(interval: &str) -> Result<Interval, pg_interval::ParseError> {
+    pub fn new(interval: &str) -> Result<Interval, ParseError> {
         Ok(Interval {
             pg: pg_interval::Interval::from_postgres(&interval)?,
         })
@@ -36,7 +71,7 @@ impl Interval {
 }
 
 impl FromStr for Interval {
-    type Err = pg_interval::ParseError;
+    type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Interval::new(s)
@@ -201,5 +236,13 @@ mod tests {
         assert_eq!(deserialized.pg.months, 1);
         assert_eq!(deserialized.pg.days, 2);
         assert_eq!(deserialized.pg.microseconds, 3);
+    }
+
+    #[test]
+    fn test_anyhow_error_propagation() {
+        let interval = (|| -> anyhow::Result<Interval> {
+            Ok(Interval::new("1 monthss")?)
+        })();
+        assert_eq!(interval.err().unwrap().to_string(), "Unknown or duplicate deliminator \"monthss\"");
     }
 }
