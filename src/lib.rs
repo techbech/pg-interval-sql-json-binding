@@ -1,3 +1,7 @@
+extern crate pg_interval;
+extern crate postgres_types;
+extern crate serde;
+
 use std::error::Error;
 use std::str::FromStr;
 use postgres_types::{accepts, FromSql, IsNull, to_sql_checked, ToSql, Type};
