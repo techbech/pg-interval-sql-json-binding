@@ -8,6 +8,7 @@ use postgres_types::{accepts, FromSql, IsNull, to_sql_checked, ToSql, Type};
 use postgres_types::private::BytesMut;
 use serde::{Deserialize, Serialize};
 use serde::ser::{SerializeStruct};
+use std::convert::TryInto;
 
 #[derive(Debug)]
 pub struct Interval {
@@ -31,18 +32,6 @@ impl Interval {
         buf[8..12].copy_from_slice(&self.pg.days.to_be_bytes());
         buf[12..16].copy_from_slice(&self.pg.months.to_be_bytes());
         buf
-    }
-}
-
-impl TryInto<Vec<u8>> for Interval {
-    type Error = Box<dyn Error + Sync + Send>;
-
-    fn try_into(self) -> Result<Vec<u8>, Self::Error> {
-        let mut buf = vec![0u8, 16];
-        buf[0..8].copy_from_slice(&self.pg.microseconds.to_be_bytes());
-        buf[8..12].copy_from_slice(&self.pg.days.to_be_bytes());
-        buf[12..16].copy_from_slice(&self.pg.months.to_be_bytes());
-        Ok(buf)
     }
 }
 
