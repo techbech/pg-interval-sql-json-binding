@@ -1,8 +1,7 @@
 [package]
 name = "pg-interval-sql-json-binding"
 description = "Postgres SQL and Serde JSON binding for crates/pg_interval"
-version = "0.1.0"
-edition = "2021"
+version = "1.0.0"
 license-file = "LICENSE"
 repository = "https://github.com/techbech/pg-interval-sql-json-binding"
 readme = "README.md"
