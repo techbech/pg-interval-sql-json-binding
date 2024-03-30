@@ -9,7 +9,7 @@ use postgres_types::private::BytesMut;
 use serde::{Deserialize, Serialize};
 use serde::ser::{SerializeStruct};
 use std::convert::TryInto;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Write};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ParseError {
@@ -75,6 +75,49 @@ impl FromStr for Interval {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Interval::new(s)
+    }
+}
+
+impl Display for Interval {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let years = self.pg.months / 12;
+        let months = self.pg.months % 12;
+        let days = self.pg.days;
+        let hours = self.pg.microseconds / 3_600_000_000;
+        let minutes = (self.pg.microseconds % 3_600_000_000) / 60_000_000;
+        let seconds = (self.pg.microseconds % 60_000_000) / 1_000_000;
+        let milliseconds = self.pg.microseconds % 1_000_000 / 1_000;
+        let microseconds = self.pg.microseconds % 1_000;
+        let mut buf = String::new();
+        if years > 0 {
+            write!(buf, "{} years ", years)?;
+        }
+        if months > 0 {
+            write!(buf, "{} mons ", months)?;
+        }
+        if days > 0 {
+            write!(buf, "{} days ", days)?;
+        }
+        if hours > 0 {
+            write!(buf, "{} hours ", hours)?;
+        }
+        if minutes > 0 {
+            write!(buf, "{} minutes ", minutes)?;
+        }
+        if seconds > 0 {
+            write!(buf, "{} seconds ", seconds)?;
+        }
+        if milliseconds > 0 {
+            write!(buf, "{} milliseconds ", milliseconds)?;
+        }
+        if microseconds > 0 {
+            write!(buf, "{} microseconds ", microseconds)?;
+        }
+        if buf.is_empty() {
+            write!(buf, "0 seconds")
+        } else {
+            write!(f, "{}", &buf.as_str()[..buf.len() - 1])
+        }
     }
 }
 
@@ -215,6 +258,27 @@ mod tests {
         let mut buf = BytesMut::new();
         interval.to_sql(&Type::INTERVAL, &mut buf).unwrap();
         assert_eq!(buf.as_ref(), &[0, 0, 0, 0, 0, 45, 198, 192, 0, 0, 0, 2, 0, 0, 0, 1]);
+    }
+
+    #[test]
+    fn test_interval_display() {
+        let interval = Interval {
+            pg: pg_interval::Interval {
+                months: 14,
+                days: 3,
+                microseconds: 4 * 3600000000 + 5 * 60000000 + 6 * 1000000 + 7 * 1000 + 8,
+            }
+        };
+        assert_eq!(format!("{}", interval), "1 years 2 mons 3 days 4 hours 5 minutes 6 seconds 7 milliseconds 8 microseconds");
+
+        let interval = Interval {
+            pg: pg_interval::Interval {
+                months: 1,
+                days: 2,
+                microseconds: 3 * 1000000,
+            }
+        };
+        assert_eq!(interval.to_string(), "1 mons 2 days 3 seconds");
     }
 
     #[test]
